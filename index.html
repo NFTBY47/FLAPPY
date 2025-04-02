@@ -309,12 +309,14 @@
             let bothPlayersConnected = false;
             let connectionCheckInterval;
             let moveCheckInterval;
+            let lastMoveHash = '';
 
             // Показать экран
             function showScreen(screen) {
                 mainMenu.classList.add('hidden');
                 gameScreen.classList.add('hidden');
                 codeInput.style.display = 'none';
+                joinGameBtn.style.display = 'block';
                 
                 screen.classList.remove('hidden');
             }
@@ -336,6 +338,7 @@
                 gameActive = true;
                 bothPlayersConnected = false;
                 gameState = ['', '', '', '', '', '', '', '', ''];
+                lastMoveHash = '';
 
                 window.location.hash = `create=${roomCode}`;
                 currentRoomCode.textContent = roomCode;
@@ -394,6 +397,7 @@
                 currentPlayer = 'O';
                 gameActive = true;
                 bothPlayersConnected = true;
+                lastMoveHash = '';
 
                 window.location.hash = `join=${roomCode}`;
                 currentRoomCode.textContent = roomCode;
@@ -408,7 +412,7 @@
 
             // Уведомление хоста о подключении
             function notifyHostAboutConnection() {
-                window.location.hash = `connect=${roomCode}-${currentPlayer}`;
+                window.location.hash = `connected=${roomCode}-${currentPlayer}`;
             }
 
             // Начало игры
@@ -421,6 +425,8 @@
             // Проверка ходов
             function checkForMoves() {
                 const hash = window.location.hash.substr(1);
+                
+                if (hash === lastMoveHash) return;
                 
                 if (hash.length === 0 || !hash.includes(roomCode)) {
                     if (gameActive) {
@@ -440,6 +446,7 @@
                         const position = parseInt(parts[2]);
                         
                         if (player !== currentPlayer && gameState[position] === '') {
+                            lastMoveHash = hash;
                             gameState[position] = player;
                             currentPlayer = player === 'X' ? 'O' : 'X';
                             myTurn = !myTurn;
@@ -460,6 +467,11 @@
                             updateBoard();
                         }
                     }
+                } else if (hash.startsWith('connected=') && isHost) {
+                    bothPlayersConnected = true;
+                    gameStatus.textContent = 'ВАШ ХОД (X)';
+                    gameStatus.classList.remove('pulse');
+                    updateBoard();
                 }
             }
 
@@ -473,11 +485,6 @@
                     if (gameState[index] === 'X') cell.classList.add('x');
                     if (gameState[index] === 'O') cell.classList.add('o');
                     
-                    // Блокируем клетки если:
-                    // - игра неактивна
-                    // - не наш ход
-                    // - клетка уже занята
-                    // - соперник еще не подключился
                     const shouldBlock = !gameActive || !myTurn || gameState[index] !== '' || !bothPlayersConnected;
                     
                     cell.style.pointerEvents = shouldBlock ? 'none' : 'auto';
@@ -514,7 +521,9 @@
                     gameStatus.classList.add('pulse');
                 }
                 
-                window.location.hash = `move=${roomCode}-${gameState[index]}-${index}`;
+                const newHash = `move=${roomCode}-${gameState[index]}-${index}`;
+                lastMoveHash = newHash;
+                window.location.hash = newHash;
             });
 
             // Проверка победы
@@ -579,12 +588,27 @@
                     myTurn = parts[1] !== currentPlayer;
                     gameActive = true;
                     bothPlayersConnected = true;
+                    lastMoveHash = hash;
                     
                     currentRoomCode.textContent = roomCode;
                     gameStatus.textContent = myTurn ? 
                         `ВАШ ХОД (${currentPlayer})` : 
                         `ХОД СОПЕРНИКА (${currentPlayer === 'X' ? 'O' : 'X'})...`;
                     if (!myTurn) gameStatus.classList.add('pulse');
+                    
+                    showScreen(gameScreen);
+                    updateBoard();
+                    startGame();
+                } else if (hash.startsWith('connected=')) {
+                    roomCode = hash.split('=')[1].split('-')[0];
+                    isHost = true;
+                    currentPlayer = 'X';
+                    gameActive = true;
+                    bothPlayersConnected = true;
+                    
+                    currentRoomCode.textContent = roomCode;
+                    gameStatus.textContent = 'ВАШ ХОД (X)';
+                    gameStatus.classList.remove('pulse');
                     
                     showScreen(gameScreen);
                     updateBoard();
