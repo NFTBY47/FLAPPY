@@ -1,0 +1,486 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cyberpunk Flier</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&display=swap');
+        
+        body {
+            margin: 0;
+            padding: 0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            background-color: #0a0a1a;
+            font-family: 'Orbitron', sans-serif;
+            overflow: hidden;
+            color: #00ffea;
+        }
+        
+        #game-container {
+            position: relative;
+            width: 400px;
+            height: 600px;
+            overflow: hidden;
+            border: 3px solid #ff00aa;
+            box-shadow: 0 0 20px #ff00aa, inset 0 0 20px #ff00aa;
+            background: linear-gradient(to bottom, #000428, #0a0a1a);
+        }
+        
+        #background {
+            position: absolute;
+            width: 400%;
+            height: 100%;
+            background: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="100" height="100" viewBox="0 0 100 100"><rect width="1" height="1" fill="%2300ffea" opacity="0.2"/></svg>');
+            animation: bgScroll 60s linear infinite;
+            z-index: 1;
+        }
+        
+        @keyframes bgScroll {
+            0% { transform: translateX(0); }
+            100% { transform: translateX(-75%); }
+        }
+        
+        #cityscape {
+            position: absolute;
+            bottom: 20px;
+            width: 400%;
+            height: 150px;
+            background: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="400" height="150" viewBox="0 0 400 150"><rect x="0" y="50" width="20" height="100" fill="%23111133"/><rect x="30" y="70" width="15" height="80" fill="%23111133"/><rect x="55" y="30" width="25" height="120" fill="%23111133"/><rect x="90" y="60" width="20" height="90" fill="%23111133"/><rect x="120" y="40" width="30" height="110" fill="%23111133"/><rect x="160" y="80" width="15" height="70" fill="%23111133"/><rect x="185" y="20" width="40" height="130" fill="%23111133"/><rect x="235" y="50" width="25" height="100" fill="%23111133"/><rect x="270" y="70" width="15" height="80" fill="%23111133"/><rect x="295" y="30" width="25" height="120" fill="%23111133"/><rect x="330" y="60" width="20" height="90" fill="%23111133"/><rect x="360" y="40" width="30" height="110" fill="%23111133"/></svg>');
+            animation: cityScroll 20s linear infinite;
+            z-index: 2;
+        }
+        
+        @keyframes cityScroll {
+            0% { transform: translateX(0); }
+            100% { transform: translateX(-50%); }
+        }
+        
+        #player {
+            position: absolute;
+            width: 40px;
+            height: 30px;
+            background-color: #00ffea;
+            border-radius: 50% 50% 50% 50% / 60% 60% 40% 40%;
+            left: 100px;
+            top: 300px;
+            z-index: 10;
+            box-shadow: 0 0 10px #00ffea;
+            transition: transform 0.1s;
+        }
+        
+        .gate {
+            position: absolute;
+            width: 60px;
+            background: linear-gradient(to bottom, #ff00aa, #ff0066);
+            border: 2px solid #ff00aa;
+            box-shadow: 0 0 15px #ff00aa;
+            z-index: 5;
+        }
+        
+        .gate::before {
+            content: '';
+            position: absolute;
+            width: 100%;
+            height: 5px;
+            background: #00ffea;
+            box-shadow: 0 0 10px #00ffea;
+            animation: gatePulse 1s infinite alternate;
+        }
+        
+        @keyframes gatePulse {
+            0% { opacity: 0.3; }
+            100% { opacity: 1; }
+        }
+        
+        #ground {
+            position: absolute;
+            width: 100%;
+            height: 20px;
+            background: linear-gradient(to right, #111133, #220044);
+            bottom: 0;
+            z-index: 100;
+            box-shadow: 0 0 20px #ff00aa;
+        }
+        
+        #hud {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            font-size: 24px;
+            font-weight: bold;
+            color: #00ffea;
+            text-shadow: 0 0 10px #00ffea;
+            z-index: 20;
+        }
+        
+        #game-over {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background-color: rgba(0, 0, 30, 0.9);
+            color: #00ffea;
+            padding: 30px;
+            border-radius: 10px;
+            text-align: center;
+            display: none;
+            z-index: 30;
+            border: 2px solid #ff00aa;
+            box-shadow: 0 0 30px #ff00aa;
+            width: 80%;
+        }
+        
+        #restart-btn {
+            margin-top: 20px;
+            padding: 12px 24px;
+            background: linear-gradient(to right, #ff00aa, #ff0066);
+            border: none;
+            border-radius: 5px;
+            color: white;
+            cursor: pointer;
+            font-size: 16px;
+            font-family: 'Orbitron', sans-serif;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            box-shadow: 0 0 15px #ff00aa;
+            transition: all 0.3s;
+        }
+        
+        #restart-btn:hover {
+            transform: scale(1.05);
+            box-shadow: 0 0 25px #ff00aa;
+        }
+        
+        #upcoming-gates {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            width: 100px;
+            height: 200px;
+            border: 2px solid #00ffea;
+            background-color: rgba(0, 0, 30, 0.5);
+            z-index: 15;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 0 15px #00ffea;
+        }
+        
+        .upcoming-gate {
+            width: 30px;
+            height: 40px;
+            margin: 5px 0;
+            background: rgba(255, 0, 170, 0.3);
+            border: 1px solid #ff00aa;
+        }
+        
+        #high-score {
+            position: absolute;
+            top: 60px;
+            left: 20px;
+            font-size: 16px;
+            color: #ff00aa;
+            text-shadow: 0 0 5px #ff00aa;
+            z-index: 20;
+        }
+    </style>
+</head>
+<body>
+    <div id="game-container">
+        <div id="background"></div>
+        <div id="cityscape"></div>
+        <div id="player"></div>
+        <div id="ground"></div>
+        <div id="hud">0</div>
+        <div id="high-score">High Score: 0</div>
+        <div id="upcoming-gates"></div>
+        <div id="game-over">
+            <h2>SYSTEM FAILURE</h2>
+            <p>Current Run: <span id="final-score">0</span></p>
+            <p>High Score: <span id="high-score-display">0</span></p>
+            <button id="restart-btn">Reboot System</button>
+        </div>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const player = document.getElementById('player');
+            const gameContainer = document.getElementById('game-container');
+            const hud = document.getElementById('hud');
+            const gameOverElement = document.getElementById('game-over');
+            const finalScoreElement = document.getElementById('final-score');
+            const highScoreDisplay = document.getElementById('high-score-display');
+            const restartBtn = document.getElementById('restart-btn');
+            const upcomingGatesContainer = document.getElementById('upcoming-gates');
+            const highScoreElement = document.getElementById('high-score');
+            
+            // Game state
+            let playerPosition = 300;
+            let playerVelocity = 0;
+            let gravity = 0.5;
+            let jumpForce = -10;
+            let gameRunning = true;
+            let score = 0;
+            let gates = [];
+            let upcomingGates = [];
+            let gateGap = 150;
+            let gateFrequency = 2000; // milliseconds
+            let lastGateTime = 0;
+            let gameSpeed = 2;
+            let highScore = localStorage.getItem('cyberpunkFlierHighScore') || 0;
+            highScoreElement.textContent = `High Score: ${highScore}`;
+            
+            // Initialize upcoming gates preview
+            function initUpcomingGates() {
+                upcomingGatesContainer.innerHTML = '';
+                for (let i = 0; i < 3; i++) {
+                    const gatePreview = document.createElement('div');
+                    gatePreview.className = 'upcoming-gate';
+                    upcomingGatesContainer.appendChild(gatePreview);
+                }
+            }
+            
+            // Update upcoming gates preview
+            function updateUpcomingGates() {
+                const previews = upcomingGatesContainer.querySelectorAll('.upcoming-gate');
+                previews.forEach((preview, index) => {
+                    if (upcomingGates[index]) {
+                        const gateHeight = upcomingGates[index].height;
+                        const containerHeight = gameContainer.clientHeight;
+                        const previewHeight = (gateHeight / containerHeight) * 40;
+                        preview.style.height = `${previewHeight}px`;
+                        preview.style.marginTop = `${(40 - previewHeight) / 2}px`;
+                        preview.style.marginBottom = `${(40 - previewHeight) / 2}px`;
+                    }
+                });
+            }
+            
+            // Game loop
+            function gameLoop(timestamp) {
+                if (!gameRunning) return;
+                
+                updatePlayer();
+                updateGates();
+                checkCollisions();
+                spawnGates(timestamp);
+                updateUpcomingGates();
+                
+                requestAnimationFrame(gameLoop);
+            }
+            
+            // Update player position
+            function updatePlayer() {
+                playerVelocity += gravity;
+                playerPosition += playerVelocity;
+                player.style.top = playerPosition + 'px';
+                
+                // Rotate player based on velocity
+                let rotation = playerVelocity * 3;
+                if (rotation > 90) rotation = 90;
+                if (rotation < -30) rotation = -30;
+                player.style.transform = `rotate(${rotation}deg)`;
+                
+                // Check if player hits ground or ceiling
+                if (playerPosition > gameContainer.clientHeight - 50) {
+                    gameOver();
+                }
+                if (playerPosition < 0) {
+                    playerPosition = 0;
+                    playerVelocity = 0;
+                }
+            }
+            
+            // Make player jump
+            function jump() {
+                if (!gameRunning) return;
+                playerVelocity = jumpForce;
+                // Add jump effect
+                player.style.boxShadow = '0 0 20px #00ffea';
+                setTimeout(() => {
+                    player.style.boxShadow = '0 0 10px #00ffea';
+                }, 200);
+            }
+            
+            // Handle controls
+            document.addEventListener('keydown', (e) => {
+                if (e.code === 'Space') {
+                    jump();
+                }
+            });
+            
+            gameContainer.addEventListener('click', () => {
+                jump();
+            });
+            
+            // Gate functions
+            function spawnGates(timestamp) {
+                if (timestamp - lastGateTime > gateFrequency) {
+                    createGate();
+                    lastGateTime = timestamp;
+                }
+            }
+            
+            function createGate() {
+                const gateHeight = Math.floor(Math.random() * 200) + 100;
+                const topGate = document.createElement('div');
+                topGate.className = 'gate';
+                topGate.style.height = gateHeight + 'px';
+                topGate.style.top = '0';
+                topGate.style.left = gameContainer.clientWidth + 'px';
+                gameContainer.appendChild(topGate);
+                
+                const bottomGate = document.createElement('div');
+                bottomGate.className = 'gate';
+                bottomGate.style.height = (gameContainer.clientHeight - gateHeight - gateGap - 20) + 'px';
+                bottomGate.style.bottom = '20px';
+                bottomGate.style.left = gameContainer.clientWidth + 'px';
+                gameContainer.appendChild(bottomGate);
+                
+                gates.push({
+                    top: topGate,
+                    bottom: bottomGate,
+                    height: gateHeight,
+                    passed: false,
+                    x: gameContainer.clientWidth
+                });
+                
+                // Add to upcoming gates
+                upcomingGates.push({ height: gateHeight });
+                if (upcomingGates.length > 3) {
+                    upcomingGates.shift();
+                }
+            }
+            
+            function updateGates() {
+                for (let i = gates.length - 1; i >= 0; i--) {
+                    const gate = gates[i];
+                    gate.x -= gameSpeed;
+                    
+                    gate.top.style.left = gate.x + 'px';
+                    gate.bottom.style.left = gate.x + 'px';
+                    
+                    // Check if gate is off screen
+                    if (gate.x < -60) {
+                        gameContainer.removeChild(gate.top);
+                        gameContainer.removeChild(gate.bottom);
+                        gates.splice(i, 1);
+                    }
+                    // Check if player passed the gate
+                    else if (!gate.passed && gate.x < 100) {
+                        gate.passed = true;
+                        score++;
+                        hud.textContent = score;
+                        // Add score effect
+                        hud.style.transform = 'scale(1.2)';
+                        hud.style.color = '#ff00aa';
+                        setTimeout(() => {
+                            hud.style.transform = 'scale(1)';
+                            hud.style.color = '#00ffea';
+                        }, 300);
+                    }
+                }
+            }
+            
+            // Collision detection
+            function checkCollisions() {
+                const playerRect = player.getBoundingClientRect();
+                const containerRect = gameContainer.getBoundingClientRect();
+                
+                for (const gate of gates) {
+                    const topGateRect = gate.top.getBoundingClientRect();
+                    const bottomGateRect = gate.bottom.getBoundingClientRect();
+                    
+                    if (
+                        playerRect.right > topGateRect.left &&
+                        playerRect.left < topGateRect.right &&
+                        playerRect.bottom > topGateRect.top &&
+                        playerRect.top < topGateRect.bottom
+                    ) {
+                        gameOver();
+                        return;
+                    }
+                    
+                    if (
+                        playerRect.right > bottomGateRect.left &&
+                        playerRect.left < bottomGateRect.right &&
+                        playerRect.bottom > bottomGateRect.top &&
+                        playerRect.top < bottomGateRect.bottom
+                    ) {
+                        gameOver();
+                        return;
+                    }
+                }
+            }
+            
+            // Game over
+            function gameOver() {
+                gameRunning = false;
+                finalScoreElement.textContent = score;
+                
+                // Update high score
+                if (score > highScore) {
+                    highScore = score;
+                    localStorage.setItem('cyberpunkFlierHighScore', highScore);
+                    highScoreElement.textContent = `High Score: ${highScore}`;
+                    highScoreDisplay.textContent = highScore;
+                    highScoreDisplay.style.color = '#ff00aa';
+                    highScoreDisplay.style.textShadow = '0 0 10px #ff00aa';
+                } else {
+                    highScoreDisplay.textContent = highScore;
+                }
+                
+                gameOverElement.style.display = 'block';
+                
+                // Explosion effect
+                player.style.backgroundColor = '#ff00aa';
+                player.style.boxShadow = '0 0 30px #ff00aa';
+                setTimeout(() => {
+                    player.style.display = 'none';
+                }, 300);
+            }
+            
+            // Restart game
+            restartBtn.addEventListener('click', () => {
+                // Remove all gates
+                gates.forEach(gate => {
+                    gameContainer.removeChild(gate.top);
+                    gameContainer.removeChild(gate.bottom);
+                });
+                gates = [];
+                upcomingGates = [];
+                initUpcomingGates();
+                
+                // Reset player
+                playerPosition = 300;
+                playerVelocity = 0;
+                player.style.top = playerPosition + 'px';
+                player.style.transform = 'rotate(0deg)';
+                player.style.display = 'block';
+                player.style.backgroundColor = '#00ffea';
+                player.style.boxShadow = '0 0 10px #00ffea';
+                
+                // Reset score
+                score = 0;
+                hud.textContent = '0';
+                
+                // Hide game over screen
+                gameOverElement.style.display = 'none';
+                
+                // Start game
+                gameRunning = true;
+                lastGateTime = performance.now();
+                requestAnimationFrame(gameLoop);
+            });
+            
+            // Initialize game
+            initUpcomingGates();
+            requestAnimationFrame(gameLoop);
+        });
+    </script>
+</body>
+</html>
