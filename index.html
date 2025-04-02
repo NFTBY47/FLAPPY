@@ -115,6 +115,13 @@
             font-size: 18px;
             min-height: 27px;
         }
+        
+        .share-link {
+            margin-top: 15px;
+            word-break: break-all;
+            color: #4CAF50;
+            text-decoration: underline;
+        }
     </style>
 </head>
 <body>
@@ -124,34 +131,14 @@
             <h1>Крестики-Нолики</h1>
             <div class="menu">
                 <button id="create-game-btn">Создать игру</button>
-                <button id="join-game-btn" class="secondary">Войти по коду</button>
-            </div>
-        </div>
-        
-        <!-- Форма ввода кода -->
-        <div id="join-form" class="hidden">
-            <h1>Введите код комнаты</h1>
-            <input type="text" id="room-code-input" placeholder="Код комнаты">
-            <div class="menu" style="margin-top: 20px;">
-                <button id="connect-btn">Подключиться</button>
-                <button id="back-btn-1" class="secondary">Назад</button>
-            </div>
-        </div>
-        
-        <!-- Экран ожидания -->
-        <div id="waiting-screen" class="hidden">
-            <h1>Ожидание игрока</h1>
-            <div class="room-code" id="room-code-display"></div>
-            <p>Дайте этот код второму игроку</p>
-            <div class="menu">
-                <button id="cancel-game-btn" class="secondary">Отмена</button>
+                <button id="join-game-btn" class="secondary">Войти по ссылке</button>
             </div>
         </div>
         
         <!-- Игровое поле -->
         <div id="game-screen" class="hidden">
             <div class="game-info">
-                Комната: <span id="current-room-code"></span>
+                Игра: <span id="current-room-code"></span>
             </div>
             <div class="status" id="game-status"></div>
             <div class="board" id="game-board">
@@ -175,19 +162,12 @@
         document.addEventListener('DOMContentLoaded', () => {
             // Элементы интерфейса
             const mainMenu = document.getElementById('main-menu');
-            const joinForm = document.getElementById('join-form');
-            const waitingScreen = document.getElementById('waiting-screen');
             const gameScreen = document.getElementById('game-screen');
             
             const createGameBtn = document.getElementById('create-game-btn');
             const joinGameBtn = document.getElementById('join-game-btn');
-            const connectBtn = document.getElementById('connect-btn');
-            const backBtn1 = document.getElementById('back-btn-1');
-            const cancelGameBtn = document.getElementById('cancel-game-btn');
             const leaveGameBtn = document.getElementById('leave-game-btn');
             
-            const roomCodeInput = document.getElementById('room-code-input');
-            const roomCodeDisplay = document.getElementById('room-code-display');
             const currentRoomCode = document.getElementById('current-room-code');
             const gameStatus = document.getElementById('game-status');
             const gameBoard = document.getElementById('game-board');
@@ -199,13 +179,10 @@
             let gameState = ['', '', '', '', '', '', '', '', ''];
             let myTurn = false;
             let gameActive = false;
-            let checkInterval;
             
             // Показать экран
             function showScreen(screen) {
                 mainMenu.classList.add('hidden');
-                joinForm.classList.add('hidden');
-                waitingScreen.classList.add('hidden');
                 gameScreen.classList.add('hidden');
                 
                 screen.classList.remove('hidden');
@@ -222,142 +199,100 @@
                 isHost = true;
                 currentPlayer = 'X';
                 myTurn = true;
+                gameActive = true;
                 
-                // Сохраняем данные комнаты
-                localStorage.setItem(`ttt_room_${roomCode}`, JSON.stringify({
-                    host: 'X',
-                    guest: null,
-                    board: ['', '', '', '', '', '', '', '', ''],
-                    currentPlayer: 'X',
-                    gameActive: true
-                }));
+                // Обновляем URL с хешем
+                window.location.hash = roomCode;
                 
-                // Удаляем старую комнату, если была
-                localStorage.removeItem('ttt_current_room');
+                currentRoomCode.textContent = roomCode;
+                gameStatus.textContent = 'Ожидаем второго игрока...';
                 
-                roomCodeDisplay.textContent = roomCode;
-                showScreen(waitingScreen);
+                // Создаем ссылку для приглашения
+                const shareLink = document.createElement('div');
+                shareLink.className = 'share-link';
+                shareLink.textContent = window.location.href;
+                gameStatus.after(shareLink);
                 
-                // Проверяем подключение игрока
-                checkInterval = setInterval(checkForGuest, 1000);
+                showScreen(gameScreen);
+                
+                // Ожидаем подключения второго игрока
+                waitForOpponent();
             });
             
-            // Проверка подключения второго игрока
-            function checkForGuest() {
-                const roomData = JSON.parse(localStorage.getItem(`ttt_room_${roomCode}`));
-                
-                if (roomData && roomData.guest) {
-                    clearInterval(checkInterval);
-                    startGame();
-                }
+            // Ожидание подключения
+            function waitForOpponent() {
+                const checkHash = setInterval(() => {
+                    if (window.location.hash !== `#${roomCode}`) {
+                        // Второй игрок подключился
+                        clearInterval(checkHash);
+                        startGame();
+                    }
+                }, 500);
             }
             
-            // Отмена создания игры
-            cancelGameBtn.addEventListener('click', () => {
-                clearInterval(checkInterval);
-                localStorage.removeItem(`ttt_room_${roomCode}`);
-                showScreen(mainMenu);
-            });
-            
-            // Вход по коду
+            // Вход по ссылке
             joinGameBtn.addEventListener('click', () => {
-                showScreen(joinForm);
-            });
-            
-            // Назад в меню
-            backBtn1.addEventListener('click', () => {
-                showScreen(mainMenu);
-            });
-            
-            // Подключение к комнате
-            connectBtn.addEventListener('click', () => {
-                const code = roomCodeInput.value.trim().toUpperCase();
+                const hash = window.location.hash.substr(1);
                 
-                if (code.length !== 6) {
-                    alert('Код комнаты должен состоять из 6 символов');
-                    return;
+                if (hash.length === 6) {
+                    roomCode = hash;
+                    isHost = false;
+                    currentPlayer = 'O';
+                    myTurn = false;
+                    gameActive = true;
+                    
+                    currentRoomCode.textContent = roomCode;
+                    startGame();
+                } else {
+                    // Если нет хеша в URL, показываем инструкцию
+                    alert('Перейдите по ссылке, которую вам отправил создатель игры');
                 }
-                
-                const roomData = JSON.parse(localStorage.getItem(`ttt_room_${code}`));
-                
-                if (!roomData) {
-                    alert('Комната не найдена');
-                    return;
-                }
-                
-                if (roomData.guest) {
-                    alert('В комнате уже есть второй игрок');
-                    return;
-                }
-                
-                // Подключаемся как гость
-                roomCode = code;
-                isHost = false;
-                currentPlayer = 'O';
-                myTurn = false;
-                
-                // Обновляем данные комнаты
-                roomData.guest = 'O';
-                roomData.currentPlayer = 'X'; // Первый ход у хоста
-                localStorage.setItem(`ttt_room_${roomCode}`, JSON.stringify(roomData));
-                
-                // Сохраняем информацию о текущей комнате
-                localStorage.setItem('ttt_current_room', roomCode);
-                
-                startGame();
             });
             
             // Начало игры
             function startGame() {
-                currentRoomCode.textContent = roomCode;
-                updateGameStatus();
-                
-                // Запускаем проверку изменений
-                checkInterval = setInterval(checkGameState, 500);
+                gameStatus.textContent = isHost ? 'Ваш ход (X)' : 'Ход соперника (X)';
+                updateBoard();
                 showScreen(gameScreen);
+                
+                // Отслеживаем изменения в URL
+                window.addEventListener('hashchange', handleHashChange);
             }
             
-            // Проверка состояния игры
-            function checkGameState() {
-                const roomData = JSON.parse(localStorage.getItem(`ttt_room_${roomCode}`));
+            // Обработка изменения хеша
+            function handleHashChange() {
+                const hash = window.location.hash.substr(1);
                 
-                if (!roomData) {
-                    // Комната удалена (хост вышел)
-                    clearInterval(checkInterval);
-                    alert('Хост покинул игру');
-                    showScreen(mainMenu);
+                if (hash.length === 0) {
+                    // Игра завершена
+                    gameActive = false;
+                    gameStatus.textContent = 'Соперник покинул игру';
                     return;
                 }
                 
-                // Обновляем состояние игры
-                gameState = roomData.board;
-                gameActive = roomData.gameActive;
-                currentPlayer = roomData.currentPlayer;
-                
-                // Проверяем, чей сейчас ход
-                myTurn = (currentPlayer === (isHost ? 'X' : 'O'));
-                
-                // Обновляем доску
-                updateBoard();
-                updateGameStatus();
-                
-                // Проверяем победу
-                if (!gameActive) {
-                    const winner = checkWin();
-                    if (winner) {
-                        gameStatus.textContent = winner === 'draw' ? 'Ничья!' : `Победил ${winner}!`;
+                // Парсим ход из хеша (формат: КОД_КОМНАТЫ-ИГРОК-ПОЗИЦИЯ)
+                const parts = hash.split('-');
+                if (parts.length === 3 && parts[0] === roomCode) {
+                    const player = parts[1];
+                    const position = parseInt(parts[2]);
+                    
+                    if (player !== currentPlayer && gameState[position] === '') {
+                        // Обновляем состояние игры
+                        gameState[position] = player;
+                        currentPlayer = player === 'X' ? 'O' : 'X';
+                        myTurn = !myTurn;
+                        
+                        // Проверяем победу
+                        const winner = checkWin();
+                        if (winner) {
+                            gameActive = false;
+                            gameStatus.textContent = winner === 'draw' ? 'Ничья!' : `Победил ${winner}!`;
+                        } else {
+                            gameStatus.textContent = myTurn ? `Ваш ход (${currentPlayer})` : 'Ход соперника...';
+                        }
+                        
+                        updateBoard();
                     }
-                }
-            }
-            
-            // Обновление статуса игры
-            function updateGameStatus() {
-                if (!gameActive) return;
-                
-                if (myTurn) {
-                    gameStatus.textContent = 'Ваш ход (' + currentPlayer + ')';
-                } else {
-                    gameStatus.textContent = 'Ход соперника...';
                 }
             }
             
@@ -389,28 +324,23 @@
                 
                 // Обновляем состояние игры
                 gameState[index] = currentPlayer;
+                updateBoard();
                 
                 // Проверяем победу
                 const winner = checkWin();
                 
-                // Сохраняем изменения
-                const roomData = JSON.parse(localStorage.getItem(`ttt_room_${roomCode}`));
-                roomData.board = gameState;
-                
                 if (winner) {
-                    roomData.gameActive = false;
+                    gameActive = false;
                     gameStatus.textContent = winner === 'draw' ? 'Ничья!' : `Победил ${winner}!`;
                 } else {
                     // Передаем ход другому игроку
-                    roomData.currentPlayer = isHost ? 'O' : 'X';
+                    currentPlayer = currentPlayer === 'X' ? 'O' : 'X';
+                    myTurn = false;
+                    gameStatus.textContent = 'Ход соперника...';
                 }
                 
-                localStorage.setItem(`ttt_room_${roomCode}`, JSON.stringify(roomData));
-                
-                // Обновляем доску
-                updateBoard();
-                myTurn = false;
-                updateGameStatus();
+                // Отправляем ход через URL
+                window.location.hash = `${roomCode}-${gameState[index]}-${index}`;
             });
             
             // Проверка победы
@@ -425,14 +355,12 @@
                 for (const pattern of winPatterns) {
                     const [a, b, c] = pattern;
                     if (gameState[a] && gameState[a] === gameState[b] && gameState[a] === gameState[c]) {
-                        gameActive = false;
                         return gameState[a];
                     }
                 }
                 
                 // Проверяем ничью
                 if (!gameState.includes('')) {
-                    gameActive = false;
                     return 'draw';
                 }
                 
@@ -441,33 +369,26 @@
             
             // Выход из игры
             leaveGameBtn.addEventListener('click', () => {
-                clearInterval(checkInterval);
-                
-                if (isHost) {
-                    // Хост удаляет комнату
-                    localStorage.removeItem(`ttt_room_${roomCode}`);
-                } else {
-                    // Гостю достаточно очистить текущую комнату
-                    localStorage.removeItem('ttt_current_room');
-                }
-                
+                window.location.hash = '';
+                gameState = ['', '', '', '', '', '', '', '', ''];
                 showScreen(mainMenu);
+                window.removeEventListener('hashchange', handleHashChange);
             });
             
-            // Проверяем, есть ли активная комната при загрузке
-            const savedRoom = localStorage.getItem('ttt_current_room');
-            if (savedRoom) {
-                const roomData = JSON.parse(localStorage.getItem(`ttt_room_${savedRoom}`));
+            // Проверяем хеш при загрузке
+            const hash = window.location.hash.substr(1);
+            if (hash.length === 6) {
+                // Автоматически подключаемся к игре
+                roomCode = hash;
+                isHost = false;
+                currentPlayer = 'O';
+                myTurn = false;
+                gameActive = true;
                 
-                if (roomData) {
-                    // Восстанавливаем игру
-                    roomCode = savedRoom;
-                    isHost = false;
-                    currentPlayer = 'O';
-                    startGame();
-                } else {
-                    localStorage.removeItem('ttt_current_room');
-                }
+                currentRoomCode.textContent = roomCode;
+                startGame();
+            } else {
+                showScreen(mainMenu);
             }
         });
     </script>
