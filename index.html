@@ -226,6 +226,22 @@
             pointer-events: none;
             z-index: 1000;
         }
+        
+        #code-input {
+            display: none;
+            margin-top: 15px;
+        }
+        
+        #code-input input {
+            width: 100%;
+            padding: 10px;
+            margin-bottom: 10px;
+            background: rgba(0, 0, 0, 0.5);
+            border: 1px solid var(--neon-pink);
+            color: var(--neon-blue);
+            text-align: center;
+            font-size: 16px;
+        }
     </style>
     <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&display=swap" rel="stylesheet">
 </head>
@@ -238,6 +254,10 @@
             <div class="menu">
                 <button id="create-game-btn">НОВАЯ ИГРА</button>
                 <button id="join-game-btn" class="secondary">ПРИСОЕДИНИТЬСЯ</button>
+                <div id="code-input">
+                    <input type="text" id="room-code-input" placeholder="ВВЕДИТЕ КОД КОМНАТЫ" maxlength="6">
+                    <button id="confirm-join-btn">ПОДТВЕРДИТЬ</button>
+                </div>
             </div>
         </div>
         
@@ -269,15 +289,16 @@
             // Элементы интерфейса
             const mainMenu = document.getElementById('main-menu');
             const gameScreen = document.getElementById('game-screen');
-            
             const createGameBtn = document.getElementById('create-game-btn');
             const joinGameBtn = document.getElementById('join-game-btn');
             const leaveGameBtn = document.getElementById('leave-game-btn');
-            
             const currentRoomCode = document.getElementById('current-room-code');
             const gameStatus = document.getElementById('game-status');
             const gameBoard = document.getElementById('game-board');
-            
+            const codeInput = document.getElementById('code-input');
+            const roomCodeInput = document.getElementById('room-code-input');
+            const confirmJoinBtn = document.getElementById('confirm-join-btn');
+
             // Игровые переменные
             let roomCode = '';
             let isHost = false;
@@ -285,49 +306,47 @@
             let gameState = ['', '', '', '', '', '', '', '', ''];
             let myTurn = false;
             let gameActive = false;
+            let bothPlayersConnected = false;
             let connectionCheckInterval;
             let moveCheckInterval;
-            
+
             // Показать экран
             function showScreen(screen) {
                 mainMenu.classList.add('hidden');
                 gameScreen.classList.add('hidden');
+                codeInput.style.display = 'none';
                 
                 screen.classList.remove('hidden');
             }
-            
+
             // Генерация случайного кода комнаты
             function generateRoomCode() {
                 return Math.random().toString(36).substr(2, 6).toUpperCase();
             }
-            
+
             // Создание новой игры
             createGameBtn.addEventListener('click', () => {
                 createNewGame();
             });
-            
+
             function createNewGame() {
                 roomCode = generateRoomCode();
                 isHost = true;
                 currentPlayer = 'X';
-                myTurn = true;
                 gameActive = true;
+                bothPlayersConnected = false;
                 gameState = ['', '', '', '', '', '', '', '', ''];
-                
-                // Обновляем URL с хешем
+
                 window.location.hash = `create=${roomCode}`;
-                
                 currentRoomCode.textContent = roomCode;
                 gameStatus.textContent = 'ОЖИДАНИЕ ИГРОКА...';
                 gameStatus.classList.add('pulse');
-                
+
                 showScreen(gameScreen);
                 updateBoard();
-                
-                // Ожидаем подключения второго игрока
                 waitForOpponent();
             }
-            
+
             // Ожидание подключения
             function waitForOpponent() {
                 clearInterval(connectionCheckInterval);
@@ -335,7 +354,7 @@
                 connectionCheckInterval = setInterval(() => {
                     const hash = window.location.hash.substr(1);
                     if (hash.startsWith(`join=${roomCode}`)) {
-                        // Второй игрок подключился
+                        bothPlayersConnected = true;
                         clearInterval(connectionCheckInterval);
                         gameStatus.textContent = 'ВАШ ХОД (X)';
                         gameStatus.classList.remove('pulse');
@@ -343,57 +362,67 @@
                     }
                 }, 500);
             }
-            
-            // Вход по ссылке
+
+            // Обработка кнопки "Присоединиться"
             joinGameBtn.addEventListener('click', () => {
                 const hash = window.location.hash.substr(1);
                 
                 if (hash.startsWith('create=')) {
-                    // Если это ссылка на создание, создаем новую игру
                     roomCode = hash.split('=')[1];
                     createNewGame();
-                } else if (hash.startsWith('join=')) {
-                    // Если это ссылка на подключение
-                    roomCode = hash.split('=')[1];
-                    joinGame();
                 } else {
-                    // Показываем инструкцию
-                    gameStatus.textContent = 'ПЕРЕЙДИТЕ ПО ССЫЛКЕ ОТ СОПЕРНИКА';
-                    gameStatus.classList.add('pulse');
+                    // Показываем поле для ввода кода
+                    codeInput.style.display = 'block';
+                    joinGameBtn.style.display = 'none';
                 }
             });
-            
-            function joinGame() {
+
+            // Подтверждение подключения
+            confirmJoinBtn.addEventListener('click', () => {
+                const code = roomCodeInput.value.trim().toUpperCase();
+                if (code.length === 6) {
+                    joinGame(code);
+                } else {
+                    alert('Код комнаты должен состоять из 6 символов');
+                }
+            });
+
+            // Подключение к игре
+            function joinGame(code) {
+                roomCode = code;
                 isHost = false;
                 currentPlayer = 'O';
-                myTurn = false;
                 gameActive = true;
-                
-                // Обновляем URL
+                bothPlayersConnected = true;
+
                 window.location.hash = `join=${roomCode}`;
-                
                 currentRoomCode.textContent = roomCode;
-                gameStatus.textContent = 'ХОД СОПЕРНИКА (X)...';
+                gameStatus.textContent = 'ПОДКЛЮЧЕНИЕ...';
                 gameStatus.classList.add('pulse');
-                
+
+                showScreen(gameScreen);
+                updateBoard();
+                notifyHostAboutConnection();
                 startGame();
             }
-            
+
+            // Уведомление хоста о подключении
+            function notifyHostAboutConnection() {
+                window.location.hash = `connect=${roomCode}-${currentPlayer}`;
+            }
+
             // Начало игры
             function startGame() {
                 updateBoard();
-                showScreen(gameScreen);
-                
-                // Отслеживаем изменения в URL
+                clearInterval(moveCheckInterval);
                 moveCheckInterval = setInterval(checkForMoves, 500);
             }
-            
+
             // Проверка ходов
             function checkForMoves() {
                 const hash = window.location.hash.substr(1);
                 
                 if (hash.length === 0 || !hash.includes(roomCode)) {
-                    // Игра завершена
                     if (gameActive) {
                         gameActive = false;
                         gameStatus.textContent = 'СОПЕРНИК ПОКИНУЛ ИГРУ';
@@ -402,7 +431,6 @@
                     return;
                 }
                 
-                // Парсим ход из хеша (формат: move=КОД_КОМНАТЫ-ИГРОК-ПОЗИЦИЯ)
                 if (hash.startsWith('move=')) {
                     const moveData = hash.split('=')[1];
                     const parts = moveData.split('-');
@@ -412,20 +440,14 @@
                         const position = parseInt(parts[2]);
                         
                         if (player !== currentPlayer && gameState[position] === '') {
-                            // Обновляем состояние игры
                             gameState[position] = player;
                             currentPlayer = player === 'X' ? 'O' : 'X';
                             myTurn = !myTurn;
                             
-                            // Проверяем победу
                             const winner = checkWin();
                             if (winner) {
                                 gameActive = false;
-                                if (winner === 'draw') {
-                                    gameStatus.textContent = 'НИЧЬЯ!';
-                                } else {
-                                    gameStatus.textContent = `ПОБЕДА ${winner}!`;
-                                }
+                                gameStatus.textContent = winner === 'draw' ? 'НИЧЬЯ!' : `ПОБЕДА ${winner}!`;
                                 gameStatus.classList.remove('pulse');
                             } else {
                                 gameStatus.textContent = myTurn ? 
@@ -440,7 +462,7 @@
                     }
                 }
             }
-            
+
             // Обновление игровой доски
             function updateBoard() {
                 const cells = gameBoard.querySelectorAll('.cell');
@@ -451,52 +473,50 @@
                     if (gameState[index] === 'X') cell.classList.add('x');
                     if (gameState[index] === 'O') cell.classList.add('o');
                     
-                    // Отключаем клик, если не наш ход или клетка занята
-                    if (!myTurn || gameState[index] !== '' || !gameActive) {
-                        cell.style.pointerEvents = 'none';
-                        cell.style.opacity = gameState[index] ? '1' : '0.3';
-                    } else {
-                        cell.style.pointerEvents = 'auto';
-                        cell.style.opacity = '1';
-                    }
+                    // Блокируем клетки если:
+                    // - игра неактивна
+                    // - не наш ход
+                    // - клетка уже занята
+                    // - соперник еще не подключился
+                    const shouldBlock = !gameActive || !myTurn || gameState[index] !== '' || !bothPlayersConnected;
+                    
+                    cell.style.pointerEvents = shouldBlock ? 'none' : 'auto';
+                    cell.style.opacity = gameState[index] ? '1' : (shouldBlock ? '0.3' : '1');
                 });
             }
-            
+
             // Обработка хода
             gameBoard.addEventListener('click', (e) => {
+                if (!bothPlayersConnected) {
+                    alert('ОЖИДАЙТЕ ПОДКЛЮЧЕНИЯ СОПЕРНИКА!');
+                    return;
+                }
+                
                 if (!e.target.classList.contains('cell') || !myTurn || !gameActive) return;
                 
                 const index = e.target.getAttribute('data-index');
                 
                 if (gameState[index] !== '') return;
                 
-                // Обновляем состояние игры
                 gameState[index] = currentPlayer;
                 updateBoard();
                 
-                // Проверяем победу
                 const winner = checkWin();
                 
                 if (winner) {
                     gameActive = false;
-                    if (winner === 'draw') {
-                        gameStatus.textContent = 'НИЧЬЯ!';
-                    } else {
-                        gameStatus.textContent = `ПОБЕДА ${winner}!`;
-                    }
+                    gameStatus.textContent = winner === 'draw' ? 'НИЧЬЯ!' : `ПОБЕДА ${winner}!`;
                     gameStatus.classList.remove('pulse');
                 } else {
-                    // Передаем ход другому игроку
                     currentPlayer = currentPlayer === 'X' ? 'O' : 'X';
                     myTurn = false;
                     gameStatus.textContent = `ХОД СОПЕРНИКА (${currentPlayer})...`;
                     gameStatus.classList.add('pulse');
                 }
                 
-                // Отправляем ход через URL
                 window.location.hash = `move=${roomCode}-${gameState[index]}-${index}`;
             });
-            
+
             // Проверка победы
             function checkWin() {
                 const winPatterns = [
@@ -505,7 +525,6 @@
                     [0, 4, 8], [2, 4, 6]             // diagonals
                 ];
                 
-                // Проверяем победу
                 for (const pattern of winPatterns) {
                     const [a, b, c] = pattern;
                     if (gameState[a] && gameState[a] === gameState[b] && gameState[a] === gameState[c]) {
@@ -513,14 +532,13 @@
                     }
                 }
                 
-                // Проверяем ничью
                 if (!gameState.includes('')) {
                     return 'draw';
                 }
                 
                 return null;
             }
-            
+
             // Выход из игры
             leaveGameBtn.addEventListener('click', () => {
                 clearInterval(connectionCheckInterval);
@@ -528,27 +546,24 @@
                 window.location.hash = '';
                 gameState = ['', '', '', '', '', '', '', '', ''];
                 showScreen(mainMenu);
+                joinGameBtn.style.display = 'block';
             });
-            
-            // Автоматическая обработка ссылки при загрузке
+
+            // Автоматическая обработка при загрузке
             function handleInitialHash() {
                 const hash = window.location.hash.substr(1);
                 
                 if (hash.startsWith('create=')) {
-                    // Создаем игру
                     roomCode = hash.split('=')[1];
                     createNewGame();
                 } else if (hash.startsWith('join=')) {
-                    // Присоединяемся к игре
                     roomCode = hash.split('=')[1];
-                    joinGame();
+                    joinGame(roomCode);
                 } else if (hash.startsWith('move=')) {
-                    // Это ход - обрабатываем
                     const moveData = hash.split('=')[1];
                     const parts = moveData.split('-');
                     roomCode = parts[0];
                     
-                    // Определяем свою роль
                     if (parts[1] === 'X') {
                         isHost = false;
                         currentPlayer = 'O';
@@ -557,13 +572,13 @@
                         currentPlayer = 'X';
                     }
                     
-                    // Загружаем состояние игры
                     gameState = ['', '', '', '', '', '', '', '', ''];
                     const position = parseInt(parts[2]);
                     gameState[position] = parts[1];
                     
                     myTurn = parts[1] !== currentPlayer;
                     gameActive = true;
+                    bothPlayersConnected = true;
                     
                     currentRoomCode.textContent = roomCode;
                     gameStatus.textContent = myTurn ? 
@@ -574,11 +589,9 @@
                     showScreen(gameScreen);
                     updateBoard();
                     startGame();
-                } else {
-                    showScreen(mainMenu);
                 }
             }
-            
+
             // Запускаем обработку при загрузке
             handleInitialHash();
         });
